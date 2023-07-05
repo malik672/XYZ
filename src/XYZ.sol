@@ -5,9 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
+contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -31,6 +30,8 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
     uint256 public proposalCount; // Proposal count
     uint256 public activeProposalCount; // Active proposal count
     IERC721 public ERC721;
+    uint256 public noticeTime = 2 hours;
+    uint256 public end = 2 days;
 
     /*//////////////////////////////////////////////////////////////
                                CONSTANTS
@@ -66,6 +67,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
     //////////////////////////////////////////////////////////////*/
     mapping(uint256 => Proposal) public proposals; // Mapping from a proposal ID to a Proposal struct
     mapping(address => uint256) public lastProposalTime; // The last time a user created a proposal
+    mapping(uint256 => uint256) public notice; //Notice time before each proposal
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -82,6 +84,8 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
         address _advisory,
         address _tlp
     ) payable ERC20("XYZ Token", "XYZ") {
+        // Grant the contract deployer the default admin role: it will be able to grant and revoke any roles
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         assembly {
             sstore(startTime.slot, timestamp())
             sstore(XYZrewards.slot, _XYZrewards)
@@ -102,16 +106,13 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
 
         // Mint initial supply
         _mint(address(this), MAX_SUPPLY);
-
-        // Grant the contract deployer the default admin role: it will be able to grant and revoke any roles
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /**
      *  Creates a new proposal.
      * @param description Description of the proposal
      */
-    function createProposal(string memory description) public nonReentrant onlyRole(PRIME_ROLE) whenNotPaused {
+    function createProposal(string memory description, bytes memory data) public nonReentrant onlyRole(PRIME_ROLE) {
         require(
             block.timestamp > lastProposalTime[msg.sender] + 1 days,
             "You have already created a proposal today. Please wait until tomorrow to create a new one."
@@ -123,11 +124,13 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
         );
 
         uint256 id = ++proposalCount;
+        notice[id] = noticeTime + block.timestamp;
         Proposal storage proposal = proposals[id];
         proposal.proposer = msg.sender;
         proposal.description = description;
         proposal.startTime = block.timestamp;
-        proposal.endTime = block.timestamp + 2 days;
+        proposal.endTime = block.timestamp + end;
+        proposal.data = data;
         lastProposalTime[msg.sender] = block.timestamp;
         ++activeProposalCount;
 
@@ -145,7 +148,8 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
      * @param id ID of the proposal to vote on
      * @param approve Whether to approve or reject the proposal
      */
-    function voteOnProposal(uint256 id, bool approve) public nonReentrant whenNotPaused {
+
+    function voteOnProposal(uint256 id, bool approve) public nonReentrant {
         require(hasRole(VOTER_ROLE, msg.sender), "You do not have the necessary permissions to vote on this proposal.");
         require(block.timestamp < proposals[id].endTime, "This proposal has already ended.");
         require(
@@ -168,7 +172,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
      *  Finalizes a proposal.
      * @param id ID of the proposal to finalize
      */
-    function finalizeProposal(uint256 id) public nonReentrant whenNotPaused {
+    function finalizeProposal(uint256 id) public nonReentrant {
         Proposal storage proposal = proposals[id];
         require(block.timestamp > proposal.endTime, "This proposal is still active.");
         require(proposal.approvalCount > proposal.rejectionCount, "This proposal has not met the minimum quorum.");
@@ -199,23 +203,9 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
-     *  Pauses the contract.
-     */
-    function pause() public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
-        _pause();
-    }
-
-    /**
-     *  Unpauses the contract.
-     */
-    function unpause() public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
-
-    /**
      *  Hook that is called before any transfer of tokens.
      */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
         super._beforeTokenTransfer(from, to, amount);
 
         if (from != address(0)) {
