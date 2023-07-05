@@ -88,9 +88,11 @@ contract TheLoungePass is ERC721, Ownable {
     }
 
     //Airdrop Wallet
-    function airdrop(address[] memory _receivers) external onlyOwner returns(bool){
+    function airdrop(address[] memory _receivers) external onlyOwner returns (bool) {
         for (uint256 i = 0; i < _receivers.length; ++i) {
             _mint(_receivers[i], tokenIds);
+            //increment token Id
+            ++tokenIds;
         }
         return true;
     }

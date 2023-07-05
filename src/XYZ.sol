@@ -13,6 +13,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     event ProposalCreated(uint256 proposalId, address proposer, string description, uint256 startTime);
     event VoteCast(uint256 proposalId, address voter, bool approve);
     event ProposalExecuted(uint256 proposalId, address _executor, bytes data);
+    
 
     /*//////////////////////////////////////////////////////////////
                                STATE VARIABLES
@@ -25,6 +26,8 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     address public ICO; // Address for ICO sale wallet
     address public founder1; // Address for founder1 wallet
     address public founder2; // Address for founder2 wallet
+    address public founder3; // Address for founder3 wallet
+    address public founder4; // Addresss for founder 4 wallet
     address public advisory; // Address for advisory wallet
     uint256 public startTime; // Start time of the contract
     uint256 public proposalCount; // Proposal count
@@ -68,6 +71,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     mapping(uint256 => Proposal) public proposals; // Mapping from a proposal ID to a Proposal struct
     mapping(address => uint256) public lastProposalTime; // The last time a user created a proposal
     mapping(uint256 => uint256) public notice; //Notice time before each proposal
+    mapping(uint256 => bool) validProposal; //checks if a proposal is valid
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -81,6 +85,8 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         address _ICO,
         address _founder1,
         address _founder2,
+        address _founder3,
+        address _founder4,
         address _advisory,
         address _tlp
     ) payable ERC20("XYZ Token", "XYZ") {
@@ -96,6 +102,8 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
             sstore(ICO.slot, _ICO)
             sstore(founder1.slot, _founder1)
             sstore(founder2.slot, _founder2)
+            sstore(founder3.slot, _founder3)
+            sstore(founder4.slot, _founder4)
             sstore(advisory.slot, _advisory)
         }
         //address of the nft contract
@@ -108,8 +116,10 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         _mint(address(this), MAX_SUPPLY);
 
         // Mint tokens for founders and advisory
-        _mint(founder1, 6_000_000 * 10 ** 18);
-        _mint(founder2, 6_000_000 * 10 ** 18);
+        _mint(founder1, 1500000 * 10 ** 18);
+        _mint(founder2, 1500000 * 10 ** 18);
+        _mint(founder3, 1500000 * 10 ** 18);
+        _mint(founder4, 1500000 * 10 ** 18);
         _mint(advisory, 1_800_000 * 10 ** 18);
     }
 
@@ -174,6 +184,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         );
 
         uint256 id = ++proposalCount;
+        validProposal[id] = true;
         notice[id] = noticeTime + block.timestamp;
         Proposal storage proposal = proposals[id];
         proposal.proposer = msg.sender;
@@ -200,13 +211,12 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
      */
 
     function voteOnProposal(uint256 id, bool approve) public nonReentrant {
-        require(hasRole(VOTER_ROLE, msg.sender), "You do not have the necessary permissions to vote on this proposal.");
         require(block.timestamp < proposals[id].endTime, "This proposal has already ended.");
         require(
             balanceOf(msg.sender) >= 10_000 * 10 ** decimals() && ERC721.balanceOf(msg.sender) > 0,
             "not enough tokens to vote"
         );
-
+        require(validProposal[id] == true, "invalid proposal");
         Proposal storage proposal = proposals[id];
         require(!proposal.hasVoted[msg.sender], "You have already voted on this proposal.");
         proposal.hasVoted[msg.sender] = true;
@@ -224,6 +234,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
      */
     function finalizeProposal(uint256 id) public nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         Proposal storage proposal = proposals[id];
+        require(validProposal[id] == true, "invalid proposal");
         require(block.timestamp > proposal.endTime, "This proposal is still active.");
         require(proposal.approvalCount > proposal.rejectionCount, "This proposal has not met the minimum quorum.");
 
@@ -240,7 +251,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
      *  Checks the balance of an account and assigns roles based on the balance.
      * @param account Address of the account
      */
-    function checkBalanceAndAssignRole(address account) internal {
+    function checkBalanceAndAssignRole(address account) public {
         uint256 balance = balanceOf(account);
         if (balance >= 30_000 * 10 ** decimals()) {
             grantRole(PRIME_ROLE, account);
