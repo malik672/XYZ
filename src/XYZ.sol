@@ -43,7 +43,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
     /*//////////////////////////////////////////////////////////////
                                IMMUTABLES
     //////////////////////////////////////////////////////////////*/
-    address public immutable tlp;//address of the nft contract
+    address public immutable tlp; //address of the nft contract
 
     /*//////////////////////////////////////////////////////////////
                               STRUCTS
@@ -58,7 +58,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
         bool active; //checks if the proposal is still active
         string description; //description of the proposal
         bytes data; //data to be executed on the contract
-        mapping(address => bool) hasVoted;//checks if the user has voted 
+        mapping(address => bool) hasVoted; //checks if the user has voted
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -81,7 +81,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
         address _founder2,
         address _advisory,
         address _tlp
-    ) ERC20("XYZ Token", "XYZ") payable {
+    ) payable ERC20("XYZ Token", "XYZ") {
         assembly {
             sstore(startTime.slot, timestamp())
             sstore(XYZrewards.slot, _XYZrewards)
@@ -107,7 +107,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-     /**
+    /**
      *  Creates a new proposal.
      * @param description Description of the proposal
      */
@@ -135,20 +135,23 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
     }
 
     ///@notice this functions allocates votes to user based on token allocation
-    function allocateVote() private view returns(uint _weight){
-          _weight = (balanceOf(msg.sender) / (10_000 * 10 ** decimals()));
-          _weight = _weight > 10 ? 10 : _weight;
+    function allocateVote() private view returns (uint256 _weight) {
+        _weight = (balanceOf(msg.sender) / (10_000 * 10 ** decimals()));
+        _weight = _weight > 10 ? 10 : _weight;
     }
 
-        /**
+    /**
      *  Allows a user to vote on a proposal.
      * @param id ID of the proposal to vote on
      * @param approve Whether to approve or reject the proposal
      */
-     function voteOnProposal(uint256 id, bool approve) public nonReentrant whenNotPaused {
+    function voteOnProposal(uint256 id, bool approve) public nonReentrant whenNotPaused {
         require(hasRole(VOTER_ROLE, msg.sender), "You do not have the necessary permissions to vote on this proposal.");
         require(block.timestamp < proposals[id].endTime, "This proposal has already ended.");
-        require(balanceOf(msg.sender) >= 10_000 * 10 ** decimals() && ERC721.balanceOf(msg.sender) > 0, "not enough tokens to vote");
+        require(
+            balanceOf(msg.sender) >= 10_000 * 10 ** decimals() && ERC721.balanceOf(msg.sender) > 0,
+            "not enough tokens to vote"
+        );
 
         Proposal storage proposal = proposals[id];
         require(!proposal.hasVoted[msg.sender], "You have already voted on this proposal.");
@@ -156,36 +159,34 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
         if (approve) {
             proposal.approvalCount += allocateVote();
         } else {
-            proposal.rejectionCount +=  allocateVote();
+            proposal.rejectionCount += allocateVote();
         }
         emit VoteCast(id, msg.sender, approve);
     }
 
-        /**
+    /**
      *  Finalizes a proposal.
      * @param id ID of the proposal to finalize
      */
-     function finalizeProposal(uint256 id) public nonReentrant whenNotPaused {
+    function finalizeProposal(uint256 id) public nonReentrant whenNotPaused {
         Proposal storage proposal = proposals[id];
         require(block.timestamp > proposal.endTime, "This proposal is still active.");
-        require(proposal.approvalCount >  proposal.rejectionCount, "This proposal has not met the minimum quorum.");
+        require(proposal.approvalCount > proposal.rejectionCount, "This proposal has not met the minimum quorum.");
 
         // Execute the proposal here or schedule its execution if it passed
-        
+
         //execute data in context of present contract
-        (bool success, bytes memory data) = address(this).delegatecall(
-          proposal.data
-        );
+        (bool success, bytes memory data) = address(this).delegatecall(proposal.data);
         require(success, "not successful");
         --activeProposalCount;
         emit ProposalExecuted(id, msg.sender, proposal.data);
     }
 
-      /**
+    /**
      *  Checks the balance of an account and assigns roles based on the balance.
      * @param account Address of the account
      */
-     function checkBalanceAndAssignRole(address account) internal {
+    function checkBalanceAndAssignRole(address account) internal {
         uint256 balance = balanceOf(account);
         if (balance >= 30_000 * 10 ** decimals()) {
             grantRole(PRIME_ROLE, account);
@@ -197,12 +198,10 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
         }
     }
 
-
-   
-     /**
+    /**
      *  Pauses the contract.
      */
-     function pause() public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
     }
 
@@ -213,13 +212,12 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-
     /**
      *  Hook that is called before any transfer of tokens.
      */
-     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
         super._beforeTokenTransfer(from, to, amount);
-        
+
         if (from != address(0)) {
             checkBalanceAndAssignRole(from);
         }
