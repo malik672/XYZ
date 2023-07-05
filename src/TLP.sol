@@ -37,7 +37,7 @@ contract TheLoungePass is ERC721, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     //mints an NFT to the sender
-    function mints(address _addr) public {
+    function mints(address _addr) public onlyOwner {
         //approves 150 worth of usdt from user to this address
         USDT.approve(address(this), currentPrice);
         //transfers 150 worth of usdt from user address to contract
@@ -85,5 +85,13 @@ contract TheLoungePass is ERC721, Ownable {
     function withdrawUSDT(address recipient) external onlyOwner {
         require(recipient != address(0), "Invalid recipient address");
         USDT.transfer(recipient, USDT.balanceOf(address(this)));
+    }
+
+    //Airdrop Wallet
+    function airdrop(address[] memory _receivers) external onlyOwner returns(bool){
+        for (uint256 i = 0; i < _receivers.length; ++i) {
+            _mint(_receivers[i], tokenIds);
+        }
+        return true;
     }
 }

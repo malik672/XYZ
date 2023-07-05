@@ -106,6 +106,50 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
 
         // Mint initial supply
         _mint(address(this), MAX_SUPPLY);
+
+        // Mint tokens for founders and advisory
+        _mint(founder1, 6_000_000 * 10 ** 18);
+        _mint(founder2, 6_000_000 * 10 ** 18);
+        _mint(advisory, 1_800_000 * 10 ** 18);
+    }
+
+    /**
+     *  Function to distribute tokens to various wallets.
+     */
+    function distributeTokens() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 balance = balanceOf(address(this));
+
+        require(balance > 0, "No tokens to distribute");
+
+        uint256 rewards = 1_500_000 * 10 ** 18; // 1.5 million tokens
+        uint256 growth = 900_000 * 10 ** 18; // 900,000 tokens
+        uint256 airdrop = 400_000 * 10 ** 18; // 400,000 tokens
+
+        uint256 seedSaleTokens = 1_800_000 * 10 ** 18;
+        uint256 privateSaleTokens = 2_400_000 * 10 ** 18;
+        uint256 ICOtokens = 4_200_000 * 10 ** 18;
+
+        // Distribute tokens
+        _transfer(address(this), XYZrewards, rewards);
+        _transfer(address(this), XYZgrowth, growth);
+        _transfer(address(this), XYZairdrop, airdrop);
+
+        // If unsold, transfer to public sale
+        if (balance >= seedSaleTokens) {
+            _transfer(address(this), seedSale, seedSaleTokens);
+        } else {
+            _transfer(address(this), ICO, seedSaleTokens - balance);
+        }
+
+        if (balance >= privateSaleTokens) {
+            _transfer(address(this), privateSale, privateSaleTokens);
+        } else {
+            _transfer(address(this), ICO, privateSaleTokens - balance);
+        }
+
+        if (balance >= ICOtokens) {
+            _transfer(address(this), ICO, ICOtokens);
+        }
     }
 
     /**
@@ -113,9 +157,15 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
      * @param description Description of the proposal
      */
     function createProposal(string memory description, bytes memory data) public nonReentrant onlyRole(PRIME_ROLE) {
+        if (lastProposalTime[msg.sender] != 0) {
+            require(
+                block.timestamp > lastProposalTime[msg.sender] + 1 days,
+                "You have already created a proposal today. Please wait until tomorrow to create a new one."
+            );
+        }
         require(
-            block.timestamp > lastProposalTime[msg.sender] + 1 days,
-            "You have already created a proposal today. Please wait until tomorrow to create a new one."
+            balanceOf(msg.sender) >= 30_000 * 10 ** decimals() && ERC721.balanceOf(msg.sender) > 0,
+            "not enough tokens to vote"
         );
 
         require(
@@ -172,7 +222,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
      *  Finalizes a proposal.
      * @param id ID of the proposal to finalize
      */
-    function finalizeProposal(uint256 id) public nonReentrant {
+    function finalizeProposal(uint256 id) public nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         Proposal storage proposal = proposals[id];
         require(block.timestamp > proposal.endTime, "This proposal is still active.");
         require(proposal.approvalCount > proposal.rejectionCount, "This proposal has not met the minimum quorum.");
