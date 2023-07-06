@@ -14,7 +14,7 @@ contract XYZTest is Test {
         vm.startPrank(msg.sender);
         tlp = new TheLoungePass(msg.sender, address(0x15), address(0x15));
         token = new XYZContract(
-            address(0x08),address(0x09),address(0x10),address(0x11),address(0x12),address(0x13),msg.sender,address(0x15),address(0x16),address(tlp));
+            address(0x08),address(0x09),address(0x10),address(0x11),address(0x12),address(0x13),msg.sender,address(0x15),address(0x16),address(tlp), address(0x03), address(0x09));
 
         vm.stopPrank();
     }
