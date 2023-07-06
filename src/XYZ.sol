@@ -273,13 +273,16 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         require(validProposal[id] == true, "invalid proposal");
         require(block.timestamp > proposal.endTime, "This proposal is still active.");
         require(proposal.approvalCount > proposal.rejectionCount, "This proposal has not met the minimum quorum.");
+        uint256 bal = balanceOf(address(this));
 
         // Execute the proposal here or schedule its execution if it passed
 
         //execute data in context of present contract
-        (bool success, bytes memory data) = address(this).delegatecall(proposal.data);
+        (bool success, bytes memory data) = address(this).call{value: 0}(proposal.data);
         require(success, "not successful");
+        uint256 bals = balanceOf(address(this));
         --activeProposalCount;
+        reuquire(bal == bals, "revert can't move tokens");
         emit ProposalExecuted(id, msg.sender, proposal.data);
     }
 
