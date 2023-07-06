@@ -264,7 +264,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     //Get votes per proposal
     function getVotesPerProposal(uint _id) view external returns(uint256 _total){
 
-       Proposal storage proposal = proposals[id];
+       Proposal storage proposal = proposals[_id];
        _total = proposal.totalVotes;
     }
 
