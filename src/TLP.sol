@@ -75,10 +75,10 @@ contract TheLoungePass is ERC721, Ownable {
     }
 
     // Withdraws any ETH balance from the contract
-    function withdrawETH(address payable recipient) external onlyOwner {
+    function withdrawETH(address payable recipient) payable external onlyOwner {
         require(recipient != address(0), "Invalid recipient address");
         uint256 balance = address(this).balance;
-        recipient.transfer(balance);
+        payable(recipient).transfer(balance);
     }
 
     // Withdraws any remaining USDT balance from the contract

@@ -5,10 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/utils/Checkpoints.sol";
 
 contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
-    using Checkpoints for Checkpoints.Trace224;
+    
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -37,7 +36,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     IERC721 public ERC721;
     uint256 public noticeTime = 2 hours; // Notice Time
     uint256 public end = 2 days; //End days
-    Checkpoints.Trace224 private voteResults; //checkpoints contract
+
 
     /*//////////////////////////////////////////////////////////////
                                CONSTANTS
@@ -192,8 +191,6 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
             activeProposalCount < MAX_ACTIVE_PROPOSALS,
             "The maximum number of active proposals has been reached. Please wait until a proposal has been finalized to create a new one."
         );
-        // Create a checkpoint with the initial voting result
-        voteResults.push(uint32(block.number), 0);
         
         validProposal[id] = true;
         notice[id] = noticeTime + block.timestamp;
@@ -207,14 +204,6 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         ++activeProposalCount;
 
         emit ProposalCreated(id, msg.sender, description, proposal.endTime);
-    }
-
-    /**
-     *  Function to get the current voting result.
-     * @return The current voting result
-     */
-    function getCurrentVotingResult() public view returns (uint256) {
-        return voteResults.latest();
     }
 
     ///@notice this functions allocates votes to user based on token allocation
@@ -244,24 +233,10 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         } else {
             proposal.rejectionCount += allocateVote();
         }
-        // Update the voting result checkpoint
-        uint256 currentBlock = block.number;
-        uint256 currentResult = voteResults.upperLookup(uint32(currentBlock));
-        uint256 newResult = currentResult + 1;
-        voteResults.push(uint32(currentBlock), uint224(newResult));
 
         // Mark the user as voted
         hasVoted[id][msg.sender] = true;
         emit VoteCast(id, msg.sender, approve);
-    }
-
-      /**
-     *  Function to get the voting result at a specific block number.
-     * @param blockNumber The block number
-     * @return The voting result at the specified block number
-     */
-     function getVotingResultAtupperLookup(uint256 blockNumber) public view returns (uint256) {
-        return voteResults.upperLookup(uint32(blockNumber));
     }
 
     /**
@@ -282,8 +257,15 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         require(success, "not successful");
         uint256 bals = balanceOf(address(this));
         --activeProposalCount;
-        reuquire(bal == bals, "revert can't move tokens");
+        require(bal == bals, "revert can't move tokens");
         emit ProposalExecuted(id, msg.sender, proposal.data);
+    }
+ 
+    //Get votes per proposal
+    function getVotesPerProposal(uint _id) view external returns(uint256 _total){
+
+       Proposal storage proposal = proposals[id];
+       _total = proposal.totalVotes;
     }
 
     /**
