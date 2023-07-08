@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -7,40 +7,27 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
-    
-
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
     event ProposalCreated(uint256 proposalId, address proposer, string description, uint256 startTime);
     event VoteCast(uint256 proposalId, address voter, bool approve);
     event ProposalExecuted(uint256 proposalId, address _executor, bytes data);
+    
 
     /*//////////////////////////////////////////////////////////////
                                STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
-    address public XYZrewards; // Address for XYZrewards wallet
-    address public XYZgrowth; // Address for XYZgrowth wallet
-    address public XYZairdrop; // Address for XYZairdrop wallet
-    address public seedSale; // Address for seed sale wallet
-    address public privateSale; // Address for private sale wallet
-    address public ICO; // Address for ICO sale wallet
-    address public founder1; // Address for founder1 wallet
-    address public founder2; // Address for founder2 wallet
-    address public founder3; // Address for founder3 wallet
-    address public founder4; // Addresss for founder 4 wallet
-    address public advisory; // Address for advisory wallet
     uint256 public startTime; // Start time of the contract
     uint256 public proposalCount; // Proposal count
     uint256 public activeProposalCount; // Active proposal count
-    IERC721 public ERC721;
-    uint256 public noticeTime = 2 hours; // Notice Time
-    uint256 public end = 2 days; //End days
-
-
+    uint256 public noticeTime = 2 hours;
+    uint256 public end = 2 days;
+    uint256 public oneYear = 365 days;
     /*//////////////////////////////////////////////////////////////
                                CONSTANTS
     //////////////////////////////////////////////////////////////*/
+    uint256 private constant DECIMALS = 10**18;
     bytes32 public constant PRIME_ROLE = keccak256("PRIME_ROLE"); // Role for prime users
     bytes32 public constant VOTER_ROLE = keccak256("VOTER_ROLE"); // Role for voter users
     uint256 public constant MAX_SUPPLY = 60_000_000 * 10 ** 18; // Maximum token supply
@@ -49,7 +36,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                IMMUTABLES
     //////////////////////////////////////////////////////////////*/
-    address public immutable tlp; //address of the nft contract
+    IERC721 public immutable tlp; //address of the nft contract
 
     /*//////////////////////////////////////////////////////////////
                               STRUCTS
@@ -67,6 +54,40 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         mapping(address => bool) hasVoted; //checks if the user has voted
     }
 
+    struct Distributions {
+        uint256 rewardsAmount;
+        uint256 growthAmount;
+        uint256 airdropAmount;
+        uint256 seedSaleTokens;
+        uint256 privateSaleTokens;
+        uint256 ICOtokens;
+    }
+
+    Distributions distributes = Distributions({ 
+        rewardsAmount: 1_500_000 * DECIMALS ,
+        growthAmount: 900_000 * DECIMALS,
+        airdropAmount: 400_000 * DECIMALS,
+        seedSaleTokens: 1_800_000 * DECIMALS,
+        privateSaleTokens: 2_400_000 * DECIMALS,
+        ICOtokens: 4_200_000 * DECIMALS
+        });
+
+    struct Wallets {
+        address founder1;
+        address founder2;
+        address founder3;
+        address founder4;
+        address advisory;
+        address XYZrewards; // Address for XYZrewards wallet
+        address XYZgrowth; // Address for XYZgrowth wallet
+        address XYZairdrop; // Address for XYZairdrop wallet
+        address seedSale; // Address for seed sale wallet
+        address privateSale; // Address for private sale wallet
+        address ICO; // Address for ICO sale wallet
+    }
+
+    Wallets wallets;
+
     /*//////////////////////////////////////////////////////////////
                                MAPPINGS
     //////////////////////////////////////////////////////////////*/
@@ -74,61 +95,42 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     mapping(address => uint256) public lastProposalTime; // The last time a user created a proposal
     mapping(uint256 => uint256) public notice; //Notice time before each proposal
     mapping(uint256 => bool) validProposal; //checks if a proposal is valid
-    mapping(uint256 => mapping(address => bool)) private hasVoted; // Mapping to track if a user has voted on a proposal
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
-    constructor(
-        address _XYZrewards,
-        address _XYZgrowth,
-        address _XYZairdrop,
-        address _seedSale,
-        address _privateSale,
-        address _ICO,
-        address _founder1,
-        address _founder2,
-        address _founder3,
-        address _founder4,
-        address _advisory,
-        address _tlp
-    ) payable ERC20("XYZ Token", "XYZ") {
+    constructor(Wallets memory walletAddresses, address _tlp) payable ERC20("XYZ Token", "XYZ") {
         // Grant the contract deployer the default admin role: it will be able to grant and revoke any roles
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        assembly {
-            sstore(startTime.slot, timestamp())
-            sstore(XYZrewards.slot, _XYZrewards)
-            sstore(XYZgrowth.slot, _XYZgrowth)
-            sstore(XYZairdrop.slot, _XYZairdrop)
-            sstore(seedSale.slot, _seedSale)
-            sstore(privateSale.slot, _privateSale)
-            sstore(ICO.slot, _ICO)
-            sstore(founder1.slot, _founder1)
-            sstore(founder2.slot, _founder2)
-            sstore(founder3.slot, _founder3)
-            sstore(founder4.slot, _founder4)
-            sstore(advisory.slot, _advisory)
-        }
+ 
         //address of the nft contract
-        tlp = _tlp;
+        tlp = IERC721(_tlp);
 
-        //set Nft
-        ERC721 = IERC721(tlp);
+        wallets = Wallets({ 
+                founder1: walletAddresses.founder1, 
+                founder2: walletAddresses.founder2, 
+                founder3: walletAddresses.founder3, 
+                founder4: walletAddresses.founder4, 
+                advisory: walletAddresses.advisory, 
+                XYZrewards: walletAddresses.XYZrewards, 
+                XYZgrowth: walletAddresses.XYZgrowth,
+                XYZairdrop: walletAddresses.XYZairdrop,
+                seedSale: walletAddresses.seedSale,
+                privateSale: walletAddresses.privateSale,
+                ICO: walletAddresses.ICO 
+            });
+
 
         // Mint initial supply
-        _mint(address(this), MAX_SUPPLY);
+        _mint(address(this), 52_200_000 * DECIMALS);
 
         // Mint tokens for founders and advisory
-        _mint(founder1, 1500000 * 10 ** 18);
-        _mint(founder2, 1500000 * 10 ** 18);
-        _mint(founder3, 1500000 * 10 ** 18);
-        _mint(founder4, 1500000 * 10 ** 18);
-        _mint(advisory, 1_800_000 * 10 ** 18);
+        _mint(wallets.founder1, 1_500_000 * DECIMALS);
+        _mint(wallets.founder2, 1_500_000 * DECIMALS);
+        _mint(wallets.founder3, 1_500_000 * DECIMALS);
+        _mint(wallets.founder4, 1_500_000 * DECIMALS);
+        _mint(wallets.advisory, 1_800_000 * DECIMALS);
     }
-
-    /*//////////////////////////////////////////////////////////////
-                               FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     /**
      *  Function to distribute tokens to various wallets.
@@ -138,34 +140,26 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
 
         require(balance > 0, "No tokens to distribute");
 
-        uint256 rewards = 1_500_000 * 10 ** 18; // 1.5 million tokens
-        uint256 growth = 900_000 * 10 ** 18; // 900,000 tokens
-        uint256 airdrop = 400_000 * 10 ** 18; // 400,000 tokens
-
-        uint256 seedSaleTokens = 1_800_000 * 10 ** 18;
-        uint256 privateSaleTokens = 2_400_000 * 10 ** 18;
-        uint256 ICOtokens = 4_200_000 * 10 ** 18;
-
         // Distribute tokens
-        _transfer(address(this), XYZrewards, rewards);
-        _transfer(address(this), XYZgrowth, growth);
-        _transfer(address(this), XYZairdrop, airdrop);
+        _transfer(address(this), wallets.XYZrewards, distributes.rewardsAmount);
+        _transfer(address(this), wallets.XYZgrowth, distributes.growthAmount);
+        _transfer(address(this), wallets.XYZairdrop, distributes.airdropAmount);
 
         // If unsold, transfer to public sale
-        if (balance >= seedSaleTokens) {
-            _transfer(address(this), seedSale, seedSaleTokens);
+        if (balance >= distributes.seedSaleTokens) {
+            _transfer(address(this), wallets.seedSale, distributes.seedSaleTokens);
         } else {
-            _transfer(address(this), ICO, seedSaleTokens - balance);
+            _transfer(address(this), wallets.ICO, distributes.seedSaleTokens - balance);
         }
 
-        if (balance >= privateSaleTokens) {
-            _transfer(address(this), privateSale, privateSaleTokens);
+        if (balance >= distributes.privateSaleTokens) {
+            _transfer(address(this), wallets.privateSale, distributes.privateSaleTokens);
         } else {
-            _transfer(address(this), ICO, privateSaleTokens - balance);
+            _transfer(address(this), wallets.ICO, distributes.privateSaleTokens - balance);
         }
 
-        if (balance >= ICOtokens) {
-            _transfer(address(this), ICO, ICOtokens);
+        if (balance >= distributes.ICOtokens) {
+            _transfer(address(this), wallets.ICO, distributes.ICOtokens);
         }
     }
 
@@ -173,8 +167,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
      *  Creates a new proposal.
      * @param description Description of the proposal
      */
-    function createProposal(string memory description, bytes memory data) public nonReentrant onlyRole(PRIME_ROLE) {
-        uint256 id = ++proposalCount;
+    function createProposal(string memory description) public nonReentrant onlyRole(PRIME_ROLE) {
         if (lastProposalTime[msg.sender] != 0) {
             require(
                 block.timestamp > lastProposalTime[msg.sender] + 1 days,
@@ -182,16 +175,16 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
             );
         }
         require(
-            balanceOf(msg.sender) >= 30_000 * 10 ** decimals() && ERC721.balanceOf(msg.sender) > 0,
+            balanceOf(msg.sender) >= 30_000 * 10 ** decimals() && tlp.balanceOf(msg.sender) > 0,
             "not enough tokens to vote"
         );
-        require(!hasVoted[id][msg.sender], "You have already voted on this proposal.");
 
         require(
             activeProposalCount < MAX_ACTIVE_PROPOSALS,
             "The maximum number of active proposals has been reached. Please wait until a proposal has been finalized to create a new one."
         );
-        
+
+        uint256 id = ++proposalCount;
         validProposal[id] = true;
         notice[id] = noticeTime + block.timestamp;
         Proposal storage proposal = proposals[id];
@@ -199,7 +192,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         proposal.description = description;
         proposal.startTime = block.timestamp;
         proposal.endTime = block.timestamp + end;
-        proposal.data = data;
+        proposal.data = "0x0";
         lastProposalTime[msg.sender] = block.timestamp;
         ++activeProposalCount;
 
@@ -221,7 +214,7 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
     function voteOnProposal(uint256 id, bool approve) public nonReentrant {
         require(block.timestamp < proposals[id].endTime, "This proposal has already ended.");
         require(
-            balanceOf(msg.sender) >= 10_000 * 10 ** decimals() && ERC721.balanceOf(msg.sender) > 0,
+            balanceOf(msg.sender) >= 10_000 * 10 ** decimals() && tlp.balanceOf(msg.sender) > 0,
             "not enough tokens to vote"
         );
         require(validProposal[id] == true, "invalid proposal");
@@ -233,9 +226,6 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         } else {
             proposal.rejectionCount += allocateVote();
         }
-
-        // Mark the user as voted
-        hasVoted[id][msg.sender] = true;
         emit VoteCast(id, msg.sender, approve);
     }
 
@@ -248,24 +238,14 @@ contract XYZContract is ERC20, AccessControl, ReentrancyGuard {
         require(validProposal[id] == true, "invalid proposal");
         require(block.timestamp > proposal.endTime, "This proposal is still active.");
         require(proposal.approvalCount > proposal.rejectionCount, "This proposal has not met the minimum quorum.");
-        uint256 bal = balanceOf(address(this));
 
         // Execute the proposal here or schedule its execution if it passed
 
         //execute data in context of present contract
-        (bool success, bytes memory data) = address(this).call{value: 0}(proposal.data);
+        (bool success, bytes memory data) = address(this).delegatecall(proposal.data);
         require(success, "not successful");
-        uint256 bals = balanceOf(address(this));
         --activeProposalCount;
-        require(bal == bals, "revert can't move tokens");
         emit ProposalExecuted(id, msg.sender, proposal.data);
-    }
- 
-    //Get votes per proposal
-    function getVotesPerProposal(uint _id) view external returns(uint256 _total){
-
-       Proposal storage proposal = proposals[_id];
-       _total = proposal.totalVotes;
     }
 
     /**

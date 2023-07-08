@@ -22,8 +22,8 @@ contract XYZTest is Test {
     //should revert does not have tokens
     function testCreate() public {
         bytes memory trial;
-        token.createProposal("create", trial);
-        token.createProposal("create", trial);
+        token.createProposal("create");
+        token.createProposal("create");
     }
 
     //should be successful
@@ -32,7 +32,7 @@ contract XYZTest is Test {
         vm.startPrank(msg.sender);
         tlp.airdrop(addr);
         token.checkBalanceAndAssignRole(msg.sender);
-        token.createProposal("create", trial);
+        token.createProposal("create");
         vm.stopPrank();
     }
 
@@ -42,7 +42,7 @@ contract XYZTest is Test {
         vm.startPrank(msg.sender);
         tlp.airdrop(addr);
         token.checkBalanceAndAssignRole(msg.sender);
-        token.createProposal("create", trial);
+        token.createProposal("create");
         vm.stopPrank();
     }
 
@@ -52,7 +52,7 @@ contract XYZTest is Test {
         vm.startPrank(msg.sender);
         tlp.airdrop(addr);
         token.checkBalanceAndAssignRole(msg.sender);
-        token.createProposal("create", trial);
+        token.createProposal("create");
         token.voteOnProposal(1, true);
         vm.stopPrank();
     }
@@ -63,7 +63,7 @@ contract XYZTest is Test {
         vm.startPrank(msg.sender);
         tlp.airdrop(addr);
         token.checkBalanceAndAssignRole(msg.sender);
-        token.createProposal("create", trial);
+        token.createProposal("create");
         token.voteOnProposal(2, true);
         vm.stopPrank();
     }
@@ -74,7 +74,7 @@ contract XYZTest is Test {
         vm.startPrank(msg.sender);
         tlp.airdrop(addr);
         token.checkBalanceAndAssignRole(msg.sender);
-        token.createProposal("create", trial);
+        token.createProposal("create");
         token.voteOnProposal(1, true);
         vm.warp(block.timestamp);
         token.finalizeProposal(1);
@@ -87,7 +87,7 @@ contract XYZTest is Test {
         vm.startPrank(msg.sender);
         tlp.airdrop(addr);
         token.checkBalanceAndAssignRole(msg.sender);
-        token.createProposal("create", trial);
+        token.createProposal("create");
         token.voteOnProposal(1, true);
         vm.warp(block.timestamp + 3 days);
         token.finalizeProposal(2);
@@ -100,7 +100,7 @@ contract XYZTest is Test {
         vm.startPrank(msg.sender);
         tlp.airdrop(addr);
         token.checkBalanceAndAssignRole(msg.sender);
-        token.createProposal("create", trial);
+        token.createProposal("create");
         token.voteOnProposal(1, true);
         vm.warp(block.timestamp + 12 days);
         token.finalizeProposal(1);

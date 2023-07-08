@@ -1,11 +1,12 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+// // SPDX-License-Identifier: MIT
+// pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract TheLoungePass is ERC721, Ownable {
+contract TheLoungePass is ERC721, Ownable, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -29,7 +30,7 @@ contract TheLoungePass is ERC721, Ownable {
             sstore(XYZburn.slot, _XYZburn)
         }
         USDT = IERC20(_usdt);
-        currentPrice = 150;
+        currentPrice = 150 * 10 ** 6;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -37,11 +38,14 @@ contract TheLoungePass is ERC721, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     //mints an NFT to the sender
-    function mints(address _addr) public onlyOwner {
-        //approves 150 worth of usdt from user to this address
-        USDT.approve(address(this), currentPrice);
+    //User Must Call Approve from the USDT Contract to allow spending
+    function mint(address _addr) public onlyOwner {
+
         //transfers 150 worth of usdt from user address to contract
-        USDT.transferFrom(msg.sender, address(this), currentPrice);
+        // critical error fix = Conversion error of price, was wei should be 1 ether/usdt 
+        bool success = USDT.transferFrom(msg.sender, address(this), currentPrice); // 6 decimals as USDT uses 6 decimals 
+        require(success, "USDT Fee Payment failed, approval or balance error");
+        
         //mints nft to user after payment
         _mint(_addr, tokenIds);
         //store tokenId in relation to price
@@ -75,10 +79,10 @@ contract TheLoungePass is ERC721, Ownable {
     }
 
     // Withdraws any ETH balance from the contract
-    function withdrawETH(address payable recipient) payable external onlyOwner {
+    function withdrawETH(address payable recipient) payable external nonReentrant onlyOwner {
         require(recipient != address(0), "Invalid recipient address");
         uint256 balance = address(this).balance;
-        payable(recipient).transfer(balance);
+        recipient.transfer(balance);
     }
 
     // Withdraws any remaining USDT balance from the contract
@@ -96,4 +100,7 @@ contract TheLoungePass is ERC721, Ownable {
         }
         return true;
     }
-}
+
+    // this is required for transferring/receiving ETH ( either receive or fallback )
+    fallback() payable external {}
+    receive() payable external {}
